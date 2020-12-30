@@ -14,16 +14,18 @@ installed first before keras or tensorflow as they may install newer version.
 
 # Test Output
 There is an output folder called ``mnist_tests``. That folder contains test results for the autoencoder 
-that ran through with the given number of features to generate each picture. The code to generate the pictures
-is currently commented out in the main method, but they can be generated if line 94 is 
-uncommented (which has: ``show_mnist(new_imgs)``).
+that ran through with the given number of features to generate each picture.
 
 # Running Autoencoder
-The following is how to run the Autoencoder
+The following is how to run the Autoencoder. When you start the program, you may get errors or warnings
+from Tensorflow. This is ok as we are only using Tensorflow to load MNIST dataset. All 
+computation is done through numpy.
 ```python
 x = # generate or load with shape : (num_data_per_point, num_points)
-w = # Randomly generate or pass in from previous run with shape: (num_data_per_point, num_features))
+w = # Randomly generate with shape: (num_data_per_point, num_features))
 z, least_squares = sci(x, w)
+# Update W using least squares loss
+z, least_squares = sci(x, w)    # Pass updated W in and run again...
 ```
 
 If you then want to test how well the autoencoder can recreate the input, run the lines below:
