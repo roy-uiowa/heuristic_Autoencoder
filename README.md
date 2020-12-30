@@ -23,13 +23,13 @@ computation is done through numpy.
 ```python
 x = # generate or load with shape : (num_data_per_point, num_points)
 w = # Randomly generate with shape: (num_data_per_point, num_features))
-z, least_squares = sci(x, w)
+z, least_squares = psi(x, w)
 # Update W using least squares loss
-z, least_squares = sci(x, w)    # Pass updated W in and run again...
+z, least_squares = psi(x, w)    # Pass updated W in and run again...
 ```
 
 If you then want to test how well the autoencoder can recreate the input, run the lines below:
 ```python
-theta_w = theta(x, w)
-recreated_x = z @ theta_w
+phi_w = phi(x, w)
+recreated_x = z @ phi_w
 ```
