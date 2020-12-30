@@ -95,7 +95,7 @@ if __name__ == '__main__':
         mnist_in = np.reshape(train_x, (img_dim * img_dim, num_img))        # Reshape images to match autoencoder input
         w_in = np.random.normal(size=(img_dim * img_dim, num_features))     # Generate random W matrix to test
         z_img, least_squares_img = psi(mnist_in, w_in)                      # Run autoencoder to generate Z
-        print(f"MNIST\t(# features : Least squares error = ({num_features} : {least_squares_img})")
+        print(f"MNIST\t(# features : Least squares error = ({num_features} : {least_squares_img:.2E})")
         phi_w_img = phi(mnist_in, w_in)                                     # Calculate phi(W)
         new_mnist = z_img @ phi_w_img                                       # Recreate original images using Z and phi(W)
         new_imgs = np.reshape(new_mnist, train_x.shape)                     # Reshape new images have original shape
