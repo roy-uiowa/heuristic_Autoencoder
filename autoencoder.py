@@ -12,6 +12,7 @@ NOTE: In python '@' means matrix multiplication.
 """
 
 import numpy as np
+from numpy.linalg import LinAlgError
 
 # For testing purposes
 from keras.datasets import mnist
@@ -42,6 +43,26 @@ def phi(x, w):
     return _activation(w.transpose() @ x)
 
 
+def _inner_psi(x, w):
+    """Inner function to calculate inner psi function before norm, and Z matrix."""
+    phi_w = phi(x, w)
+    q_1, r_1 = np.linalg.qr(phi_w.transpose())
+
+    if np.linalg.det(r_1) == 0:
+        raise LinAlgError("Determinant of R_1 is 0, R_1 does not have an inverse.")
+
+    # Z = XQ_1(R_1^T)^{-1}
+    z = x @ q_1 @ np.linalg.inv(r_1.transpose())
+
+    inner_psi = (z @ phi_w) - x
+    return z, inner_psi
+
+
+def calc_least_square(x, inner_psi):
+    """Calculate least squares error from inner psi function and x."""
+    return (1 / x.shape[1]) * np.square(np.linalg.norm(inner_psi, 'fro'))
+
+
 def psi(x, w):
     """
     Run 1 iteration to calculate new W and Z from input.
@@ -52,66 +73,42 @@ def psi(x, w):
     Z.shape = (n,m) = (# of inputs/data point, # of features)
     X.shape = (n,N) = (# of inputs/data point, # of data points)
     """
-    phi_w = phi(x, w)
-    q_1, r_1 = np.linalg.qr(phi_w.transpose())
-
-    # Z = XQ_1(R_1^T)^{-1}
-    z = x @ q_1 @ np.linalg.inv(r_1.transpose())
-
-    tmp_psi = (z @ phi_w) - x
-    least_squares = (1 / x.shape[1]) * np.square(np.linalg.norm(tmp_psi, 'fro'))
+    z, inner_psi = _inner_psi(x, w)
+    least_squares = calc_least_square(x, inner_psi)
     return z, least_squares
-
-
-def calc_h(x, w):
-    """Calculate the partial derivative with respect to W of variable phi function."""
-    phi_w = phi(x, w)
-    return np.gradient(phi_w, axis=0)   # Computes partial derivative over rows (W)
 
 
 def calc_g(x, w):
     """Calculate the matrix gradient of psi(W)."""
-    g = np.zeros(w.shape)
-    n, m = w.shape
-    n, cap_n = x.shape
-
     # Calculate A matrix
-    z, least_squares = psi(x, w)
-    phi_w = phi(x, w)
-    tmp_psi = (z @ phi_w) - x
-    a = z.transpose() @ tmp_psi
+    z, inner_psi = _inner_psi(x, w)
+    least_squares = calc_least_square(x, inner_psi)
+    a = z.transpose() @ inner_psi
 
-    #for i in range(m):
+    # ================Original, non vectorized, approach kept for reference========================
+    # for i in range(m):
     #    a_i = a[i, :]
     #    w_i = w[:, i]
-    #    delta = _activation(w_i.transpose() @ x)
-    #    delta = (delta > 0).view('i1')              # ReLu derivative
-    #    tmp = (a_i @ delta.transpose()) * x         # (a_{i}r'(w_{i}^{T}X)^{T})X -> (n x N) matrix
-    #    g[:, i] = np.sum(tmp, axis=1)               # sum(over j, tmp) -> (n x 1) matrix
+    #    sum = np.zeros((n,))
+    #    for j in range(cap_n):
+    #        x_j = x[:, j]
+    #        delta = _activation(w_i.transpose() @ x_j)
+    #        delta = (delta > 0).view('i1')  # ReLu derivative
+    #        result = (a_i[j] * delta) * x_j
+    #        sum = np.add(sum, result)
 
-    for i in range(m):
-        a_i = a[i, :]
-        w_i = w[:, i]
-        sum = np.zeros((n,))
-        for j in range(cap_n):
-            x_j = x[:, j]
-            delta = _activation(w_i.transpose() @ x_j)
-            delta = (delta > 0).view('i1')  # ReLu derivative
-            result = (a_i[j] * delta) * x_j
-            sum = np.add(sum, result)
+    #    g[:, i] = sum
+    # ==============================================================================================
 
-        g[:, i] = sum
+    # Vectorized implementation of matrix gradient calculation
+    delta = _activation(w.transpose() @ x)
+    delta = (delta > 0).view('i1')  # ReLu derivative
+    j = a * delta
+    g = x @ j.transpose()
 
-    #a_s = np.asarray([np.sum(a, axis=1)])               # (1 x m)
-    #x_s = np.transpose([np.sum(x, axis=1)])             # (n x 1)
-    #delta = _activation(w.transpose() @ x)
-    #delta = (delta > 0).view('i1')  # ReLu derivative
-    #delta_s = np.asarray([np.sum(delta, axis=1)])     # (1 x m)
-    #tmp = x @ delta.transpose()
-    #g_tmp = np.multiply(tmp, a_s)
-    #g_tmp = x_s @ np.multiply(delta_s, a_s)
-    #print(f"g_tmp shape: {g.shape}")
-    #print(f"g and g_tmp equal: {np.array_equal(g, g_tmp)}")
+    # For testing old and new matrices. Need to round since there may be rounding errors for trailing
+    # decimal places that would make the np.array_equal() method return false when it should be true.
+    # print(f"g and g_tmp equal: {np.array_equal(np.around(g, decimals=9), np.around(g_tmp, decimals=9))}")
 
     return z, least_squares, g
 
@@ -133,31 +130,33 @@ if __name__ == '__main__':
     # Sanity test to make sure that feature number positively impacts least squares error.
     np.random.seed(1234)
     num_points = 100
-    num_data_per_point = 50
+    num_data_per_point = 55
     learning_rate = 0.01
     for num_features in [1, 5, 10, 15, 20, 40]:
         x_in = np.random.uniform(size=(num_data_per_point, num_points))
         w_in = np.random.normal(size=(num_data_per_point, num_features))
-        z_out, least_squares_test = psi(x_in, w_in)
-        print(f"(# features : Least squares error = ({num_features} : {least_squares_test})")
-        print("Starting gradient decent...")
-        learning_rate = 0.5
-        loss_values = []  # Keep track of loss values over epochs
-        for epoch in range(150):
-            z_grd, ls_grd, grd = calc_g(x_in, w_in)  # Calculate Z, Error, and Gradient Matrix
-            w_in = w_in - (learning_rate * grd)  # Update W using Gradient Matrix
-            loss_values.append(ls_grd)  # Log loss
-            print(f"Epoch: {epoch}\t----------\tLoss: {ls_grd}")
+        try:
+            z_out, least_squares_test = psi(x_in, w_in)
+            print(f"(# features : Least squares error = ({num_features} : {least_squares_test})")
+            print("Starting gradient decent...")
+            learning_rate = 0.5
+            loss_values = []  # Keep track of loss values over epochs
+            for epoch in range(150):
+                z_grd, ls_grd, grd = calc_g(x_in, w_in)  # Calculate Z, Error, and Gradient Matrix
+                w_in = w_in - (learning_rate * grd)  # Update W using Gradient Matrix
+                loss_values.append(ls_grd)  # Log loss
+                print(f"Epoch: {epoch}\t----------\tLoss: {ls_grd}")
 
-        # print(loss_values)
-        plt.plot(loss_values)
-        plt.ylabel("Loss")
-        plt.xlabel("Epoch number")
-        plt.title(f"Gradient Loss Over Epochs (test) (num_features: {num_features})")
-        plt.show()
-        # print(z_out)
-
-    quit()
+            # print(loss_values)
+            plt.plot(loss_values)
+            plt.ylabel("Loss")
+            plt.xlabel("Epoch number")
+            plt.title(f"Gradient Loss Over Epochs (test) (num_features: {num_features})")
+            plt.show()
+        except LinAlgError as e:
+            print(f"Error occured with num_features = {num_features}")
+            print(e)
+            continue
 
     # Testing MNIST dataset
     (train_x, _), (_, _) = mnist.load_data()
@@ -179,15 +178,21 @@ if __name__ == '__main__':
 
     # Gradient check using MNIST
     learning_rate = 0.5
-    num_features = 300
+    num_features = 400
     w_in = np.random.normal(size=(img_dim * img_dim, num_features))         # Generate random W matrix to test
     loss_values = []                                                        # Keep track of loss values over epochs
     mnist_in = np.reshape(train_x, (img_dim * img_dim, num_img))            # Reshape images to match autoencoder input
-    for epoch in range(50):
+    for epoch in range(150):
         z_grd, ls_grd, grd = calc_g(mnist_in, w_in)                         # Calculate Z, Error, and Gradient Matrix
         w_in = w_in - (learning_rate * grd)                                 # Update W using Gradient Matrix
         loss_values.append(ls_grd)                                          # Log loss
         print(f"Epoch: {epoch}\t----------\tLoss: {ls_grd}")
+
+    phi_w_img = phi(mnist_in, w_in)                                     # Calculate phi(W)
+    new_mnist = z_grd @ phi_w_img                                       # Recreate original images using Z and phi(W)
+    new_imgs = np.reshape(new_mnist, train_x.shape)                     # Reshape new images have original shape
+    show_mnist(new_imgs, f"{num_features}_features_gradient")           # Show new images
+    plt.show()
 
     # print(loss_values)
     plt.plot(loss_values)
