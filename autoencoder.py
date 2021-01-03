@@ -45,7 +45,14 @@ from keras.datasets import mnist
 
 class AutoEncoder:
 
-    def __init__(self, x, num_features, use_gpu=True):
+    def __init__(self, x, num_features, use_gpu=True, random_seed=None):
+        """
+
+        :param x: Numpy or Cupy ndarray of input in shape (n x N)
+        :param num_features: Number of features to encode down to (m)
+        :param use_gpu: (optional default=True) Whether to use GPU regardless of if Cupy is installed and X is large enough
+        :param random_seed: (optional default=None) A random seed that will be set for testing if given
+        """
         # Check if the size of X is over 10 million elements.
         # If it is, set the math library to Cupy to get speedup on GPU.
         # Otherwise, speedup would not be worth it, so set to Numpy.
@@ -55,8 +62,11 @@ class AutoEncoder:
             self.ml.synchronize = lambda: self.ml.cuda.Stream.null.synchronize()
         else:
             self.ml = np
-            self.ml.synchronize = lambda: 0
+            self.ml.synchronize = lambda: True
             self.ml.get = lambda y: y
+
+        if random_seed:
+            self.ml.random.seed(random_seed)
 
         self.x = self.ml.asarray(x)
         tmp_w = self.ml.random.normal(size=(x.shape[0], num_features))
@@ -73,7 +83,6 @@ class AutoEncoder:
 
         s = np.linalg.svd(phi_w, full_matrices=False, compute_uv=False)
         self.alpha = 0.01 * self.ml.square(s.max())
-        #self.alpha = 0.01 * self.ml.square(2.7)
         self.ml.synchronize()
 
     def _activation(self, z):
@@ -87,9 +96,9 @@ class AutoEncoder:
         then run result through ReLu activation function.
         calculates: [varphi(x1;W), varphi(x2;W), ..., varphi(xN;W)]
 
-        :param x:
-        :param w:
-        :return:
+        :param w: Either Cupy or Numpy ndarray. It is the encoder matrix of size (p x m) [NOTE: p = n for simplicity]
+        :param output_numpy: (optional default=True) Whether to output tmp as Numpy ndarray (True) or Cupy ndarray (False)
+        :return: Phi(W) = sigma(W^T @ X)
         """
 
         # Vectorized variable phi
@@ -111,22 +120,22 @@ class AutoEncoder:
         q_1 = q_1[:-abs(self.x.shape[1] - q_1.shape[0]), :]
         z = self.x @ q_1 @ self.ml.linalg.inv(r_1.transpose())
         inner_psi = (z @ phi_w) - self.x
-        self.ml.synchronize()
 
         return z, inner_psi
 
-    def calc_least_square(self, inner_psi, z):
+    def _calc_least_square(self, inner_psi, z):
         """Calculate least squares error from inner psi function and x."""
         tmp = (1 / self.x.shape[1]) * (self.ml.square(self.ml.linalg.norm(inner_psi, 'fro')) + self.alpha * self.ml.square(self.ml.linalg.norm(z, 'fro')))
-        self.ml.synchronize()
         return tmp.item()
 
     def psi(self, w):
         """
         Run 1 iteration to calculate new W and Z from input.
+        :param w: Either Cupy or Numpy ndarray. It is the encoder matrix of size (p x m) [NOTE: p = n for simplicity]
+        :return: Psi(W) = ||Z^T @ W - X||_F^2 or least squares error between Z^T @ W and X.
         """
         z, inner_psi = self._inner_psi(w)
-        least_squares = self.calc_least_square(inner_psi, z)
+        least_squares = self._calc_least_square(inner_psi, z)
         self.ml.synchronize()
         try:
             return z.get(), least_squares
@@ -134,12 +143,15 @@ class AutoEncoder:
             return z, least_squares
 
     def calc_g(self, w):
-        """Calculate the matrix gradient of psi(W)."""
+        """
+        Calculate the matrix gradient of psi(W).
+        :param w: Either Cupy or Numpy ndarray. It is the encoder matrix of size (p x m) [NOTE: p = n for simplicity]
+        :return: The gradient matrix G for Psi(W)
+        """
         # Calculate A matrix
         z, inner_psi = self._inner_psi(w)
-        least_squares = self.calc_least_square(inner_psi, z)
+        least_squares = self._calc_least_square(inner_psi, z)
         a = self.ml.matmul(z.transpose(), inner_psi)
-        self.ml.synchronize()
 
         # ================Original, non vectorized, approach kept for reference========================
         #n, m = w.shape
@@ -186,7 +198,7 @@ def test_random():
     x_in = np.random.normal(size=(num_data_per_point, num_points))
     loss_values = []
     for num_features in [1, 5, 10, 15, 20, 40, 70]:
-        ae = AutoEncoder(x_in, num_features)
+        ae = AutoEncoder(x_in, num_features, random_seed=1234)
         w_in = np.random.normal(size=(num_data_per_point, num_features))
         z_out, least_squares_test = ae.psi(w_in)
         loss_values.append(least_squares_test)
@@ -201,7 +213,7 @@ def test_mnist():
     num_img, img_dim, _ = train_x.shape                                     # Get number of images and # pixels per square img
     mnist_in = np.reshape(train_x, (img_dim * img_dim, num_img))            # Reshape images to match autoencoder input
     for num_features in [1, 50, 100, 200, 300, 400, 500, 700]:
-        ae = AutoEncoder(mnist_in, num_features)
+        ae = AutoEncoder(mnist_in, num_features, random_seed=1234)
         w_in = np.random.normal(size=(img_dim * img_dim, num_features))     # Generate random W matrix to test
         z_img, least_squares_img = ae.psi(w_in)                             # Run autoencoder to generate Z
         print(f"MNIST\t(# features : Least squares error = ({num_features} : {least_squares_img:.2E})")
@@ -212,8 +224,6 @@ def test_mnist():
 
 
 if __name__ == '__main__':
-    np.random.seed(1234)
-    cp.random.seed(1234)
     test_random()
     test_mnist()
 

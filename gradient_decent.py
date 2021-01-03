@@ -10,7 +10,6 @@ from autoencoder import AutoEncoder
 import plotter
 
 import numpy as np
-from numpy.linalg import LinAlgError
 
 # For testing purposes
 from keras.datasets import mnist
@@ -23,7 +22,7 @@ def test_random():
     learning_rate = 0.5
     x_in = np.random.normal(size=(num_data_per_point, num_points))
     for num_features in [1, 5, 10, 15, 20, 40, 70]:
-        ae = AutoEncoder(x_in, num_features)
+        ae = AutoEncoder(x_in, num_features, random_seed=1234)
         w_in = np.random.normal(size=(num_data_per_point, num_features))
         z_out, least_squares_test = ae.psi(w_in)
         print(f"(# features : Least squares error = ({num_features} : {least_squares_test})")
@@ -51,7 +50,7 @@ def test_mnist():
 
     w_in = np.random.normal(size=(img_dim * img_dim, num_features))     # Generate random W matrix to test
     mnist_in = np.reshape(train_x, (img_dim * img_dim, num_img))        # Reshape images to match autoencoder input
-    ae = AutoEncoder(mnist_in, num_features)
+    ae = AutoEncoder(mnist_in, num_features, random_seed=1234)
     for epoch in range(150):
         z_grd, ls_grd, grd = ae.calc_g(w_in)                            # Calculate Z, Error, and Gradient Matrix
         w_in = w_in - (learning_rate * grd)                             # Update W using Gradient Matrix
@@ -74,7 +73,7 @@ def test_gradient():
     const = np.random.normal(size=(num_data_per_point, num_points))     # X
     x = np.random.normal(size=(num_data_per_point, num_features))       # W
     dx = x * 1e-3
-    ae = AutoEncoder(const, num_features)
+    ae = AutoEncoder(const, num_features, random_seed=1234)
 
     def f(input):
         return ae.psi(input)[1]
@@ -104,7 +103,6 @@ def test_gradient():
 
 
 if __name__ == '__main__':
-    np.random.seed(1234)
     #test_random()
     test_gradient()
     test_mnist()
