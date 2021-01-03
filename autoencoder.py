@@ -224,6 +224,7 @@ def test_mnist():
 
 
 if __name__ == '__main__':
+    np.random.seed(1234)
     test_random()
     test_mnist()
 

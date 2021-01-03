@@ -103,6 +103,7 @@ def test_gradient():
 
 
 if __name__ == '__main__':
+    np.random.seed(1234)
     #test_random()
     test_gradient()
     test_mnist()
