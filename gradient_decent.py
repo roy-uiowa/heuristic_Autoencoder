@@ -6,7 +6,7 @@ Gradient decent code.
 
 @author: Cory Kromer-Edwards
 """
-import autoencoder
+from autoencoder import AutoEncoder
 import plotter
 
 import numpy as np
@@ -23,66 +23,64 @@ def test_random():
     learning_rate = 0.5
     x_in = np.random.normal(size=(num_data_per_point, num_points))
     for num_features in [1, 5, 10, 15, 20, 40, 70]:
+        ae = AutoEncoder(x_in, num_features)
         w_in = np.random.normal(size=(num_data_per_point, num_features))
-        try:
-            z_out, least_squares_test = autoencoder.psi(x_in, w_in)
-            print(f"(# features : Least squares error = ({num_features} : {least_squares_test})")
-            print("Starting gradient decent...")
-            loss_values = []  # Keep track of loss values over epochs
-            for epoch in range(150):
-                z_grd, ls_grd, grd = autoencoder.calc_g(x_in, w_in)  # Calculate Z, Error, and Gradient Matrix
-                w_in = w_in - (learning_rate * grd)  # Update W using Gradient Matrix
-                loss_values.append(ls_grd)  # Log loss
-                print(f"Epoch: {epoch}\t----------\tLoss: {ls_grd}")
+        z_out, least_squares_test = ae.psi(w_in)
+        print(f"(# features : Least squares error = ({num_features} : {least_squares_test})")
+        print("Starting gradient decent...")
+        loss_values = []  # Keep track of loss values over epochs
+        for epoch in range(1000):
+            z_grd, ls_grd, grd = ae.calc_g(w_in)  # Calculate Z, Error, and Gradient Matrix
+            w_in = w_in - (learning_rate * grd)  # Update W using Gradient Matrix
+            loss_values.append(ls_grd)  # Log loss
+            print(f"Epoch: {epoch}\t----------\tLoss: {ls_grd}")
 
-            # print(loss_values)
-            plotter.plot_loss(loss_values, f"Gradient Loss Over Epochs (test) (num_features: {num_features})")
-        except LinAlgError as e:
-            print(f"Error occured with num_features = {num_features}")
-            print(e)
-            continue
+        # print(loss_values)
+        plotter.plot_loss(loss_values, f"Gradient Loss Over Epochs (test) (num_features: {num_features})")
             
             
 def test_mnist():
     # Gradient check using MNIST
     (train_x, _), (_, _) = mnist.load_data()
-    # autoencoder.show_mnist(train_x, "original")                           # Show original mnist images
-    num_img, img_dim, _ = train_x.shape  # Get number of images and # pixels per square img
+    # plotter.plot_mnist(train_x, "original")                           # Show original mnist images
+
+    num_img, img_dim, _ = train_x.shape                                 # Get number of images and # pixels per square img
     learning_rate = 0.5
     num_features = 700
-    w_in = np.random.normal(size=(img_dim * img_dim, num_features))  # Generate random W matrix to test
-    loss_values = []  # Keep track of loss values over epochs
-    mnist_in = np.reshape(train_x, (img_dim * img_dim, num_img))  # Reshape images to match autoencoder input
+    loss_values = []                                                    # Keep track of loss values over epochs
+
+    w_in = np.random.normal(size=(img_dim * img_dim, num_features))     # Generate random W matrix to test
+    mnist_in = np.reshape(train_x, (img_dim * img_dim, num_img))        # Reshape images to match autoencoder input
+    ae = AutoEncoder(mnist_in, num_features)
     for epoch in range(150):
-        z_grd, ls_grd, grd = autoencoder.calc_g(mnist_in, w_in)  # Calculate Z, Error, and Gradient Matrix
-        w_in = w_in - (learning_rate * grd)  # Update W using Gradient Matrix
-        loss_values.append(ls_grd)  # Log loss
+        z_grd, ls_grd, grd = ae.calc_g(w_in)                            # Calculate Z, Error, and Gradient Matrix
+        w_in = w_in - (learning_rate * grd)                             # Update W using Gradient Matrix
+        loss_values.append(ls_grd)                                      # Log loss
         print(f"Epoch: {epoch}\t----------\tLoss: {ls_grd}")
 
-    phi_w_img = autoencoder.phi(mnist_in, w_in)  # Calculate phi(W)
-    new_mnist = z_grd @ phi_w_img  # Recreate original images using Z and phi(W)
-    new_imgs = np.reshape(new_mnist, train_x.shape)  # Reshape new images have original shape
-    autoencoder.show_mnist(new_imgs, f"{num_features}_features_gradient")  # Show new images
+    phi_w_img = ae.phi(w_in)                                            # Calculate phi(W)
+    new_mnist = z_grd @ phi_w_img                                       # Recreate original images using Z and phi(W)
+    new_imgs = np.reshape(new_mnist, train_x.shape)                     # Reshape new images have original shape
+    plotter.plot_mnist(new_imgs, f"{num_features}_features_gradient")   # Show new images
 
     # print(loss_values)
     plotter.plot_loss(loss_values, "MNIST_Gradient_Loss_Over_Epochs")
 
 
 def test_gradient():
-    num_points = 30                                                    # N
+    num_points = 30                                                     # N
     num_data_per_point = 20                                             # n
     num_features = 12                                                   # m
     const = np.random.normal(size=(num_data_per_point, num_points))     # X
     x = np.random.normal(size=(num_data_per_point, num_features))       # W
+    dx = x * 1e-3
+    ae = AutoEncoder(const, num_features)
 
     def f(input):
-        return autoencoder.psi(const, input)[1]
+        return ae.psi(input)[1]
 
     def df(input):
-        return autoencoder.calc_g(const, input)[2]  # G
-
-    # I have also tried "np.gradient(x) * 1e-3" and "np.random.normal(size=(num_data_per_point, num_features)) * 1e-3"
-    dx = x * 1e-3
+        return ae.calc_g(input)[2]  # G
 
     # Test 1: Check norm(dx)
     check1 = f(x + dx)
@@ -104,9 +102,10 @@ def test_gradient():
     print(f"new_differror: {new_differror}")
     print(f"differror: {differror}")
 
+
 if __name__ == '__main__':
     np.random.seed(1234)
     #test_random()
     test_gradient()
-    #test_mnist()
+    test_mnist()
     plotter.show_avail_plots()

@@ -36,8 +36,8 @@ def plot_mnist(imgs, title):
 
 def plot_loss(array, title, xlabel="Epoch number"):
     global plt_fig_id
-    fig = plt.figure()
-    ax = fig.add_axes((1, 1, 1, 1))
+    fig, axes = plt.subplots(1, 1)
+    ax = axes
     fig.suptitle(title)
     fig.canvas.set_window_title(title)
     ax.plot(array)
