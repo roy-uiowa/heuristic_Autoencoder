@@ -63,7 +63,6 @@ class AutoEncoder:
         else:
             self.ml = np
             self.ml.synchronize = lambda: True
-            self.ml.get = lambda y: y
 
         if random_seed:
             self.ml.random.seed(random_seed)
@@ -106,7 +105,10 @@ class AutoEncoder:
         tmp = self._activation(self.ml.matmul(tmp_w.transpose(), self.x))
         self.ml.synchronize()
         if output_numpy:
-            return tmp.get()
+            try:
+                return tmp.get()
+            except:
+                return tmp
         else:
             return tmp
 

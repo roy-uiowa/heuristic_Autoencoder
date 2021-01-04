@@ -55,10 +55,6 @@ If you have a different version of Cuda installed, say for example Cuda version 
 For more information about a version, you can visit [https://pypi.org/project/cupy-cuda102/](https://pypi.org/project/cupy-cuda102/),
 or you can change the URL for your version by pypi.org/project/cupy-cudaXY/ as you did above with pip.
 
-# Test Output
-There is an output folder called ``mnist_tests``. That folder contains test results for the autoencoder 
-that ran through with the given number of features to generate each picture.
-
 # Running Autoencoder
 The following is how to run the Autoencoder. When you start the program, you may get errors or warnings
 from Tensorflow. This is ok as we are only using Tensorflow to load MNIST dataset. All 
@@ -78,3 +74,23 @@ If you then want to test how well the autoencoder can recreate the input, run th
 phi_w = ae.phi(w)
 recreated_x = z @ phi_w
 ```
+
+# Test Output
+There is an output folder called ``mnist_tests``. That folder contains test results for the autoencoder 
+that ran through with the given number of features to generate each picture.
+
+# Test timing GPU v CPU
+Timing testing was done using MNIST training dataset of 60,000 handwritten digit images of 28x28 size. The Autoencoder
+ran with 700 features. CPU ran on AMD Ryzen 7 1700X (8-core CPU) running 3.44 GHz, and the GPU ran on NVIDIA Geforce GTX 1080. 
+Both devices were running stock with no overclocking done.
+
+Average time in seconds/epoch are:
+* GPU: 2.57
+* CPU: 10.27
+
+The GPU timing ran steady at 2.57 seconds/epoch from epoch 3 onward. CPU timing fluctuated heavily between 9.56 and 12.06
+seconds/epoch.
+
+In total CPU time ran 1,000 epochs in 10268.18 seconds while GPU ran 1,000 epochs in 2573.96 seconds. There was as speedup
+of 3.996 sec/epoch using the GPU over the CPU. Log outputs of both CPU and GPU, and picture outputs of loss and reconstruction
+of MNIST images, are in `/mnist_tests/gradient_dec_timing` folder of the repository.
