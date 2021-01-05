@@ -130,7 +130,7 @@ class AutoEncoder:
 
     def _calc_least_square(self, inner_psi, z):
         """Calculate least squares error from inner psi function and x."""
-        tmp = (1 / self.x.shape[1]) * (self.ml.square(self.ml.linalg.norm(inner_psi, 'fro')) + self.alpha * self.ml.square(self.ml.linalg.norm(z, 'fro')))
+        tmp = (self.ml.square(self.ml.linalg.norm(inner_psi, 'fro')) + self.alpha * self.ml.square(self.ml.linalg.norm(z, 'fro')))
         return tmp.item()
 
     def psi(self, w):
@@ -156,7 +156,7 @@ class AutoEncoder:
         # Calculate A matrix
         z, inner_psi = self._inner_psi(w)
         least_squares = self._calc_least_square(inner_psi, z)
-        a = self.ml.matmul(z.transpose(), inner_psi)
+        a = 2 * self.ml.matmul(z.transpose(), inner_psi)
 
         # ================Original, non vectorized, approach kept for reference========================
         #n, m = w.shape
