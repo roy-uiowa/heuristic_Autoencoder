@@ -19,15 +19,15 @@ from keras.datasets import mnist
 
 
 class Particle:
-    def __init__(self, name, initial_weight, cost_function):
+    def __init__(self, name, initial_weight, cost_function, max_iter):
         self.name = name
         self.velocity = []  # particle velocity
         self.pos_best = []  # best position individual
         self.err_best = -1  # best error individual
         self.cost = -1  # error individual
-        self.s_weight = .5
-        self.c_weight = .5
-        self.v_weight = .5
+        self.s_weight = np.sort(np.random.rand(max_iter))
+        self.c_weight = np.sort(np.random.rand(max_iter))
+        self.v_weight = np.sort(np.random.rand(max_iter))
         self.velocity = np.multiply(initial_weight, 0)
         self.position = initial_weight
         self.cost_function = cost_function
@@ -42,11 +42,29 @@ class Particle:
             self.err_best = self.cost
 
     # update new particle velocity
-    def update_velocity(self, pos_best_g):
-        vel_cognitive = np.multiply(np.multiply(self.c_weight, np.random.random()),
-                                    np.subtract(self.pos_best, self.position))
-        vel_social = np.multiply(np.multiply(self.s_weight, np.random.random()), np.subtract(pos_best_g, self.position))
-        self.velocity = np.add(np.multiply(self.v_weight, self.velocity), np.add(vel_cognitive, vel_social))
+    def update_velocity(self, pos_best_g, iteration):
+        temp_position = np.array(self.position)
+        temp_r1 = np.random.rand(temp_position.shape[0],temp_position.shape[1] )
+        temp_r2 = np.random.rand(temp_position.shape[0], temp_position.shape[1])
+
+        vel_cognitive = np.multiply(
+                            np.multiply(
+                                self.c_weight[len(self.c_weight)-(iteration+1)], temp_r1),
+                            np.subtract(
+                                self.pos_best, self.position))
+
+        vel_social = np.multiply(
+                        np.multiply(
+                            self.s_weight[iteration],  temp_r2),
+                        np.subtract(
+                            pos_best_g, self.position))
+
+        self.velocity = np.add(
+                            np.multiply(
+                                self.v_weight[iteration], self.velocity),
+                            np.add(
+                                vel_cognitive, vel_social))
+
 
     # update the particle position based off new velocity updates
     def update_position(self):
@@ -55,18 +73,20 @@ class Particle:
 
 
 class Algorithm():
-    def __init__(self, x_in, maxiter, num_particles, num_features, num_data_per_point):
+    def __init__(self, x_in,history,  maxiter, num_particles, num_features, num_data_per_point):
         self.err_best_g = None  # best error for group
         self.pos_best_g = []  # best position for group
         self.num_particles = 3
         self.maxiter = maxiter
         # establish the swarm
-        ae = AutoEncoder(x_in, num_features, random_seed=1234)
+        self.ae = AutoEncoder(x_in, num_features, random_seed=1234)
+        self.history = history
+        self.updates = []
 
         self.swarm = []
         for i in range(0, num_particles):
             w_in = np.random.normal(size=(num_data_per_point, num_features), scale=5)
-            self.swarm.append(Particle(i, w_in, ae.psi))
+            self.swarm.append(Particle(i, w_in, self.ae.psi, maxiter))
 
     def run(self):
         # begin optimization loop
@@ -81,11 +101,20 @@ class Algorithm():
                     self.pos_best_g = particle.position
                     self.err_best_g = particle.cost
 
-            for particle in self.swarm:
-                particle.update_velocity(self.pos_best_g)
-                particle.update_position()
+            dis = 0
+            for p1 in self.swarm:
+                for p2 in self.swarm:
+                    dis += np.linalg.norm(p1.position-p2.position)
+                break
 
-        return self.err_best_g
+            print("ave. distance between matrix: {}".format(dis))
+            for particle in self.swarm:
+                particle.update_velocity(self.pos_best_g, i)
+                particle.update_position()
+            if i % self.history == 0:
+                self.updates.append(self.pos_best_g)
+
+        return self.ae, self.pos_best_g , self.err_best_g, self.updates
 
 
 def test_random():
@@ -95,26 +124,35 @@ def test_random():
     num_points = 100
     num_data_per_point = 55
     x_in = np.random.normal(size=(num_data_per_point, num_points))
-
+    history = 10
     for num_features in [1, 10, 20]:
-        PSO = Algorithm( x_in, maxiter, num_particles, num_features, num_data_per_point)
-        least_squares_test = PSO.run()
+        PSO = Algorithm( x_in, history, maxiter, num_particles, num_features, num_data_per_point)
+        ae, w_in, least_squares_test, updated_history = PSO.run()
         print(f"(# features : Least squares error = ({num_features} : {least_squares_test})")
 
 def test_mnist():
     print("===== RUNNING MNIST =====")
     (train_x, _), (_, _) = mnist.load_data()
+    train_x = train_x / 255
     plotter.plot_mnist(train_x, "original")  # Show original mnist images
     num_img, img_dim, _ = train_x.shape  # Get number of images and # pixels per square img
     mnist_in = np.reshape(train_x, (img_dim * img_dim, num_img))  # Reshape images to match autoencoder input
 
+    history = 30
     maxiter = 300
-    num_particles = 400
-    for num_features in [20, 10, 2]:
-        PSO = Algorithm(mnist_in, maxiter, num_particles, num_features, img_dim * img_dim)
-        least_squares_test = PSO.run()
+    num_particles = 10
+    for num_features in [500]:
+        PSO = Algorithm(mnist_in, history, maxiter, num_particles, num_features, img_dim * img_dim)
+        ae, w_in, least_squares_test,updated_history = PSO.run()
         print(f"(# features : Least squares error = ({num_features} : {least_squares_test})")
-        #TODO plot output
+        for pos in range(len(updated_history)):
+            z_grd, ls_grd, grd = ae.calc_g(updated_history[pos])  # Calculate Z, Error, and Gradient Matrix
+            phi_w_img = ae.phi(updated_history[pos])  # Calculate phi(W)
+            new_mnist = z_grd @ phi_w_img  # Recreate original images using Z and phi(W)
+            new_imgs = np.reshape(new_mnist, train_x.shape)  # Reshape new images have original shape
+            plotter.plot_mnist(new_imgs, f"{num_features}_features_{pos*history}_iteration")  # Show new images
+        plotter.show_avail_plots()
+
 
 if __name__ == '__main__':
     np.random.seed(1234)
