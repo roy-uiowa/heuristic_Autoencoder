@@ -31,6 +31,7 @@ class Particle:
         self.velocity = np.multiply(initial_weight, 0)
         self.position = initial_weight
         self.cost_function = cost_function
+        self.history = [initial_weight]
 
     # evaluate current fitness
     def evaluate(self):
@@ -50,6 +51,7 @@ class Particle:
     # update the particle position based off new velocity updates
     def update_position(self):
         self.position = np.add(self.position, self.velocity)
+        self.history.append(self.position)
 
 
 class Algorithm():
@@ -69,6 +71,7 @@ class Algorithm():
     def run(self):
         # begin optimization loop
         for i in range(self.maxiter):
+            print("----------\n\t"+str(i))
             # cycle through particles in swarm and evaluate fitness
             for particle in self.swarm:
                 particle.evaluate()
@@ -98,22 +101,20 @@ def test_random():
         least_squares_test = PSO.run()
         print(f"(# features : Least squares error = ({num_features} : {least_squares_test})")
 
-
 def test_mnist():
-    quit()
     print("===== RUNNING MNIST =====")
     (train_x, _), (_, _) = mnist.load_data()
     plotter.plot_mnist(train_x, "original")  # Show original mnist images
     num_img, img_dim, _ = train_x.shape  # Get number of images and # pixels per square img
     mnist_in = np.reshape(train_x, (img_dim * img_dim, num_img))  # Reshape images to match autoencoder input
 
-    maxiter = 100
-    num_particles = 4
-    for num_features in [1, 10, 20]:
+    maxiter = 300
+    num_particles = 400
+    for num_features in [20, 10, 2]:
         PSO = Algorithm(mnist_in, maxiter, num_particles, num_features, img_dim * img_dim)
         least_squares_test = PSO.run()
         print(f"(# features : Least squares error = ({num_features} : {least_squares_test})")
-
+        #TODO plot output
 
 if __name__ == '__main__':
     np.random.seed(1234)
