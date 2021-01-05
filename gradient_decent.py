@@ -37,9 +37,32 @@ def test_random():
 
         # print(loss_values)
         plotter.plot_loss(loss_values, f"Gradient Loss Over Epochs (test) (num_features: {num_features})")
+
+
+def do_epoch(ae, w, learning_rate, loss_values, times, loss_values_less, loss_diffs, epoch, start_time):
+    epoch_start_time = time.time()
+    z_grd, ls_grd, grd = ae.calc_g(w)  # Calculate Z, Error, and Gradient Matrix
+    w_in = w - ((1 / learning_rate) * grd)  # Update W using Gradient Matrix
+    if len(loss_values) >= 1:
+        loss_diffs.append(abs(loss_values[-1] - ls_grd))
+    else:
+        loss_diffs.append(1000000000)
+
+    loss_values.append(ls_grd)  # Log loss
+    epoch_end_time = time.time()
+    times.append(epoch_end_time - epoch_start_time)
+    print(f"Epoch: {epoch}\t----------\tElapsed time(sec): {(epoch_end_time - epoch_start_time):.2f}\
+\t----------\tLoss: {ls_grd:.2f}\
+\t----------\tLoss diff: {loss_diffs[-1]:.2f}\
+\t----------\tAverage time/epoch(sec): {sum(times) / len(times):.2f}\
+\t----------\tRun time(sec): {(epoch_start_time - start_time):.2f}")
+    if epoch > 0:
+        loss_values_less.append(ls_grd)
+
+    return w_in, z_grd
             
             
-def test_mnist():
+def test_mnist(num_epochs=None):
     # Gradient check using MNIST
     (train_x, _), (_, _) = mnist.load_data()
     # plotter.plot_mnist(train_x, "original")                           # Show original mnist images
@@ -49,25 +72,26 @@ def test_mnist():
     num_features = 700
     loss_values = []                                                    # Keep track of loss values over epochs
     loss_values_less = []
+    loss_diffs = []
 
     w_in = np.random.normal(size=(img_dim * img_dim, num_features))     # Generate random W matrix to test
     mnist_in = np.reshape(train_x, (img_dim * img_dim, num_img))        # Reshape images to match autoencoder input
-    ae = AutoEncoder(mnist_in, num_features, random_seed=1234, use_gpu=False)
+    ae = AutoEncoder(mnist_in, num_features, random_seed=1234, use_gpu=True)
     start_time = time.time()
     times = []
-    for epoch in range(1000):
-        epoch_start_time = time.time()
-        z_grd, ls_grd, grd = ae.calc_g(w_in)                            # Calculate Z, Error, and Gradient Matrix
-        w_in = w_in - (learning_rate * grd)                             # Update W using Gradient Matrix
-        loss_values.append(ls_grd)                                      # Log loss
-        epoch_end_time = time.time()
-        times.append(epoch_end_time - epoch_start_time)
-        print(f"Epoch: {epoch}\t----------\tElapsed time(sec): {(epoch_end_time - epoch_start_time):.2f}\
-\t----------\tLoss: {ls_grd:.2f}\
-\t----------\tAverage time/epoch(sec): {sum(times)/len(times):.2f}\
-\t----------\tRun time(sec): {(epoch_start_time - start_time):.2f}")
-        if epoch > 0:
-            loss_values_less.append(ls_grd)
+    if num_epochs:
+        for epoch in range(num_epochs):
+            w_in, z_grd = do_epoch(ae, w_in, learning_rate, loss_values, times, loss_values_less, loss_diffs, epoch, start_time)
+    else:
+        epoch_history_check = 5
+        epoch = 0
+        loss_avg = 1000
+        tol = 0.03
+        while loss_avg > tol:
+            w_in, z_grd = do_epoch(ae, w_in, learning_rate, loss_values, times, loss_values_less, loss_diffs, epoch, start_time)
+            loss_check = loss_diffs[-epoch_history_check:]
+            loss_avg = sum(loss_check) / len(loss_check)
+            epoch += 1
 
     print(f"Total time to run gradient decent (sec): {time.time() - start_time}")
     phi_w_img = ae.phi(w_in)                                            # Calculate phi(W)
