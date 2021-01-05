@@ -42,7 +42,7 @@ def test_random():
 def do_epoch(ae, w, learning_rate, loss_values, times, loss_values_less, loss_diffs, epoch, start_time):
     epoch_start_time = time.time()
     z_grd, ls_grd, grd = ae.calc_g(w)  # Calculate Z, Error, and Gradient Matrix
-    w_in = w - (learning_rate * grd)  # Update W using Gradient Matrix
+    w_in = w - ((1 / learning_rate) * grd)  # Update W using Gradient Matrix
     if len(loss_values) >= 1:
         loss_diffs.append(abs(loss_values[-1] - ls_grd))
     else:
@@ -68,7 +68,7 @@ def test_mnist(num_epochs=None):
     # plotter.plot_mnist(train_x, "original")                           # Show original mnist images
 
     num_img, img_dim, _ = train_x.shape                                 # Get number of images and # pixels per square img
-    learning_rate = 1
+    learning_rate = 0.5
     num_features = 700
     loss_values = []                                                    # Keep track of loss values over epochs
     loss_values_less = []
