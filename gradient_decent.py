@@ -42,6 +42,7 @@ def test_random():
 def test_mnist():
     # Gradient check using MNIST
     (train_x, _), (_, _) = mnist.load_data()
+    train_x = train_x/255
     # plotter.plot_mnist(train_x, "original")                           # Show original mnist images
 
     num_img, img_dim, _ = train_x.shape                                 # Get number of images and # pixels per square img
