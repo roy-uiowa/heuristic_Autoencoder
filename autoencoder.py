@@ -61,6 +61,10 @@ class AutoEncoder:
             self.ml = cp
             self.ml.synchronize = lambda: self.ml.cuda.Stream.null.synchronize()
         else:
+            if n * cap_n <= 1e7:
+                print("X not of sufficient size to benefit from GPU speedup, using Numpy.")
+                print(f"Number of elements in X are {n * cap_n} and benefit starts at {1e7} elements.")
+
             self.ml = np
             self.ml.synchronize = lambda: True
 
@@ -75,12 +79,11 @@ class AutoEncoder:
         # so we want this. We can also set compute_uv=False to save time on computing u and vh altogether.
         # This leaves to the output to be s instead of u, s, vh.
         phi_w = self.phi(tmp_w, output_numpy=False)
-        try:
-            phi_w = phi_w.get()
-        except:
-            pass
 
-        s = np.linalg.svd(phi_w, full_matrices=False, compute_uv=False)
+        # Reduced SVD calculation since Numpy and Cupy have memory issues if X is too large.
+        # R will be (m x m) which should always fit in memory for Numpy and Cupy.
+        _, r = self.ml.linalg.qr(phi_w.transpose())
+        s = np.linalg.svd(r, full_matrices=False, compute_uv=False)
         self.alpha = 0.01 * self.ml.square(s.max())
         self.ml.synchronize()
 
@@ -127,7 +130,7 @@ class AutoEncoder:
 
     def _calc_least_square(self, inner_psi, z):
         """Calculate least squares error from inner psi function and x."""
-        tmp = (1 / self.x.shape[1]) * (self.ml.square(self.ml.linalg.norm(inner_psi, 'fro')) + self.alpha * self.ml.square(self.ml.linalg.norm(z, 'fro')))
+        tmp = (self.ml.square(self.ml.linalg.norm(inner_psi, 'fro')) + self.alpha * self.ml.square(self.ml.linalg.norm(z, 'fro')))
         return tmp.item()
 
     def psi(self, w):
@@ -153,7 +156,7 @@ class AutoEncoder:
         # Calculate A matrix
         z, inner_psi = self._inner_psi(w)
         least_squares = self._calc_least_square(inner_psi, z)
-        a = self.ml.matmul(z.transpose(), inner_psi)
+        a = 2 * self.ml.matmul(z.transpose(), inner_psi)
 
         # ================Original, non vectorized, approach kept for reference========================
         #n, m = w.shape
