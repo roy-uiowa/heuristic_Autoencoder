@@ -72,6 +72,7 @@ class Algorithm():
             # cycle through particles in swarm and evaluate fitness
             for particle in self.swarm:
                 particle.evaluate()
+                print("p{} == cost: {}".format(particle.name, particle.cost))
                 # determine if current particle is the best (globally)
                 if self.err_best_g is None or particle.cost < self.err_best_g:
                     self.pos_best_g = particle.position
@@ -80,15 +81,14 @@ class Algorithm():
             for particle in self.swarm:
                 particle.update_velocity(self.pos_best_g)
                 particle.update_position()
-            print("{} : {}".format(i, self.err_best_g))
 
         return self.err_best_g
 
 
 def test_random():
     print("===== RUNNING TEST =====")
-    maxiter = 100
-    num_particles = 10
+    maxiter = 3
+    num_particles = 3
     num_points = 100
     num_data_per_point = 55
     x_in = np.random.normal(size=(num_data_per_point, num_points))
@@ -100,6 +100,7 @@ def test_random():
 
 
 def test_mnist():
+    quit()
     print("===== RUNNING MNIST =====")
     (train_x, _), (_, _) = mnist.load_data()
     plotter.plot_mnist(train_x, "original")  # Show original mnist images
@@ -107,7 +108,7 @@ def test_mnist():
     mnist_in = np.reshape(train_x, (img_dim * img_dim, num_img))  # Reshape images to match autoencoder input
 
     maxiter = 100
-    num_particles = 10
+    num_particles = 4
     for num_features in [1, 10, 20]:
         PSO = Algorithm(mnist_in, maxiter, num_particles, num_features, img_dim * img_dim)
         least_squares_test = PSO.run()
