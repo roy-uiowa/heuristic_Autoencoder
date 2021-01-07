@@ -28,6 +28,7 @@ X.shape = (n,N) = (# of inputs/data point, # of data points)
 """
 import plotter
 
+from termcolor import colored
 import numpy as np
 from scipy.linalg import svdvals
 
@@ -61,9 +62,9 @@ class AutoEncoder:
             self.ml = cp
             self.ml.synchronize = lambda: self.ml.cuda.Stream.null.synchronize()
         else:
-            if n * cap_n <= 1e7:
-                print("X not of sufficient size to benefit from GPU speedup, using Numpy.")
-                print(f"Number of elements in X are {n * cap_n} and benefit starts at {1e7} elements.")
+            if n * cap_n <= 1e7 and use_gpu:
+                print(colored("X not of sufficient size to benefit from GPU speedup, using Numpy.", "red"))
+                print(colored(f"Number of elements in X are {n * cap_n} and benefit starts at {1e7} elements.", "red"))
 
             self.ml = np
             self.ml.synchronize = lambda: True
@@ -231,7 +232,7 @@ def test_mnist():
 if __name__ == '__main__':
     np.random.seed(1234)
     test_random()
-    test_mnist()
+    # test_mnist()
 
     # If there are any figures in the state machine, show them
     plotter.show_avail_plots()

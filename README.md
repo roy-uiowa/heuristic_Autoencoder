@@ -7,6 +7,7 @@ The following libraries, with given pip commands, must be installed before runni
 * ``pip install keras``
 * ``pip install tensorflow``
 * ``pip install matplotlib``
+* ``pip install deap``
 
 A note about the libraries above. Installing them in order matters. Currently, on Windows at least,
 the latest numpy version cannot work. The version given is the newest version that works. This must be 

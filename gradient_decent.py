@@ -69,7 +69,7 @@ def test_mnist(num_epochs=None):
 
     num_img, img_dim, _ = train_x.shape                                 # Get number of images and # pixels per square img
     learning_rate = 0.5
-    num_features = 700
+    num_features = 500
     loss_values = []                                                    # Keep track of loss values over epochs
     loss_values_less = []
     loss_diffs = []
@@ -143,6 +143,6 @@ def test_gradient():
 if __name__ == '__main__':
     np.random.seed(1234)
     #test_random()
-    test_gradient()
+    #test_gradient()
     test_mnist()
     plotter.show_avail_plots()
