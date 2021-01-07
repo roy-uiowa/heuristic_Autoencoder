@@ -41,8 +41,8 @@ class Particle:
     # update new particle velocity
     def update_velocity(self, pos_best_g, iteration):
         w =.5
-        c1=1
-        c2=2
+        c1=3
+        c2=1
 
         vel_cog = c1 * np.random.random()
         vel_cog = np.multiply(vel_cog, np.subtract(self.pos_best, self.position))
@@ -65,7 +65,7 @@ class Algorithm():
         self.num_particles = 3
         self.maxiter = maxiter
         # establish the swarm
-        self.ae = AutoEncoder(x_in, num_features, random_seed=1234)
+        self.ae = AutoEncoder(x_in, num_features, random_seed=1234, use_gpu=True)
         self.history = history
         self.updates = []
 
@@ -76,17 +76,24 @@ class Algorithm():
 
     def run(self):
         # begin optimization loop
+        loss_values = []
         for i in range(self.maxiter):
             print("----------\n\t"+str(i))
             # cycle through particles in swarm and evaluate fitness
+            min_loss = 9e12
             for particle in self.swarm:
                 particle.evaluate()
                 print("p{} == cost: {}".format(particle.name, particle.cost))
                 # determine if current particle is the best (globally)
+                if min_loss > particle.cost:
+                    min_loss = particle.cost
+
                 if self.err_best_g is None or particle.cost < self.err_best_g:
                     self.pos_best_g = particle.position
                     self.err_best_g = particle.cost
                     print("new best")
+
+            loss_values.append(min_loss)
             dis = 0
             for p1 in self.swarm:
                 for p2 in self.swarm:
@@ -100,8 +107,7 @@ class Algorithm():
             if i % self.history == 0:
                 self.updates.append(self.pos_best_g)
 
-        return self.ae, self.pos_best_g , self.err_best_g, self.updates
-
+        return self.ae, self.pos_best_g , self.err_best_g, self.updates, loss_values
 
 
 def test_mnist():
@@ -112,12 +118,13 @@ def test_mnist():
     num_img, img_dim, _ = train_x.shape  # Get number of images and # pixels per square img
     mnist_in = np.reshape(train_x, (img_dim * img_dim, num_img))  # Reshape images to match autoencoder input
 
-    history = 1
-    maxiter = 5
-    num_particles = 5
-    for num_features in [700]:
+    history = 500
+    maxiter = 1001
+    num_particles = 50
+    for num_features in [100]:
         PSO = Algorithm(mnist_in, history, maxiter, num_particles, num_features, img_dim * img_dim)
-        ae, w_in, least_squares_test,updated_history = PSO.run()
+        ae, w_in, least_squares_test, updated_history, loss_values = PSO.run()
+        plotter.plot_loss(loss_values, f"{num_features}_features_pso_w")
         print(f"(# features : Least squares error = ({num_features} : {least_squares_test})")
         for pos in range(len(updated_history)):
             z_grd, ls_grd, grd = ae.calc_g(updated_history[pos])  # Calculate Z, Error, and Gradient Matrix
@@ -125,7 +132,8 @@ def test_mnist():
             new_mnist = z_grd @ phi_w_img  # Recreate original images using Z and phi(W)
             new_imgs = np.reshape(new_mnist, train_x.shape)  # Reshape new images have original shape
             plotter.plot_mnist(new_imgs, f"{num_features}_features_{pos*history}_iteration")  # Show new images
-        plotter.show_avail_plots()
+
+    plotter.show_avail_plots()
 
 
 if __name__ == '__main__':
