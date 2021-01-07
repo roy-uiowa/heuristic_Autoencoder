@@ -65,11 +65,12 @@ def do_epoch(ae, w, learning_rate, loss_values, times, loss_values_less, loss_di
 def test_mnist(num_epochs=None):
     # Gradient check using MNIST
     (train_x, _), (_, _) = mnist.load_data()
+    train_x = train_x / 255                                             # Normalizing images
     # plotter.plot_mnist(train_x, "original")                           # Show original mnist images
 
     num_img, img_dim, _ = train_x.shape                                 # Get number of images and # pixels per square img
     learning_rate = 0.5
-    num_features = 700
+    num_features = 200
     loss_values = []                                                    # Keep track of loss values over epochs
     loss_values_less = []
     loss_diffs = []
@@ -143,6 +144,6 @@ def test_gradient():
 if __name__ == '__main__':
     np.random.seed(1234)
     #test_random()
-    test_gradient()
-    test_mnist()
+    #test_gradient()
+    test_mnist(100)
     plotter.show_avail_plots()
