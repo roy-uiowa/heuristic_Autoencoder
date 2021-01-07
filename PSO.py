@@ -25,9 +25,6 @@ class Particle:
         self.pos_best = []  # best position individual
         self.err_best = -1  # best error individual
         self.cost = -1  # error individual
-        self.s_weight = np.sort(np.random.rand(max_iter))
-        self.c_weight = np.sort(np.random.rand(max_iter))
-        self.v_weight = np.sort(np.random.rand(max_iter))
         self.velocity = np.multiply(initial_weight, 0)
         self.position = initial_weight
         self.cost_function = cost_function
@@ -43,29 +40,18 @@ class Particle:
 
     # update new particle velocity
     def update_velocity(self, pos_best_g, iteration):
-        temp_position = np.array(self.position)
-        temp_r1 = np.random.rand(temp_position.shape[0],temp_position.shape[1] )
-        temp_r2 = np.random.rand(temp_position.shape[0], temp_position.shape[1])
+        w =.5
+        c1=1
+        c2=2
 
-        vel_cognitive = np.multiply(
-                            np.multiply(
-                                self.c_weight[len(self.c_weight)-(iteration+1)], temp_r1),
-                            np.subtract(
-                                self.pos_best, self.position))
+        vel_cog = c1 * np.random.random()
+        vel_cog = np.multiply(vel_cog, np.subtract(self.pos_best, self.position))
 
-        vel_social = np.multiply(
-                        np.multiply(
-                            self.s_weight[iteration],  temp_r2),
-                        np.subtract(
-                            pos_best_g, self.position))
+        vel_soc = c2 * np.random.random()
+        vel_soc = np.multiply(vel_soc, np.subtract(pos_best_g, self.position))
 
-        self.velocity = np.add(
-                            np.multiply(
-                                self.v_weight[iteration], self.velocity),
-                            np.add(
-                                vel_cognitive, vel_social))
-
-
+        vel_pre = w * self.velocity
+        self.velocity = vel_pre + vel_soc + vel_cog 
     # update the particle position based off new velocity updates
     def update_position(self):
         self.position = np.add(self.position, self.velocity)
@@ -100,7 +86,7 @@ class Algorithm():
                 if self.err_best_g is None or particle.cost < self.err_best_g:
                     self.pos_best_g = particle.position
                     self.err_best_g = particle.cost
-
+                    print("new best")
             dis = 0
             for p1 in self.swarm:
                 for p2 in self.swarm:
@@ -117,18 +103,6 @@ class Algorithm():
         return self.ae, self.pos_best_g , self.err_best_g, self.updates
 
 
-def test_random():
-    print("===== RUNNING TEST =====")
-    maxiter = 3
-    num_particles = 3
-    num_points = 100
-    num_data_per_point = 55
-    x_in = np.random.normal(size=(num_data_per_point, num_points))
-    history = 10
-    for num_features in [1, 10, 20]:
-        PSO = Algorithm( x_in, history, maxiter, num_particles, num_features, num_data_per_point)
-        ae, w_in, least_squares_test, updated_history = PSO.run()
-        print(f"(# features : Least squares error = ({num_features} : {least_squares_test})")
 
 def test_mnist():
     print("===== RUNNING MNIST =====")
@@ -138,10 +112,10 @@ def test_mnist():
     num_img, img_dim, _ = train_x.shape  # Get number of images and # pixels per square img
     mnist_in = np.reshape(train_x, (img_dim * img_dim, num_img))  # Reshape images to match autoencoder input
 
-    history = 30
-    maxiter = 300
-    num_particles = 10
-    for num_features in [500]:
+    history = 1
+    maxiter = 5
+    num_particles = 5
+    for num_features in [700]:
         PSO = Algorithm(mnist_in, history, maxiter, num_particles, num_features, img_dim * img_dim)
         ae, w_in, least_squares_test,updated_history = PSO.run()
         print(f"(# features : Least squares error = ({num_features} : {least_squares_test})")
@@ -156,5 +130,4 @@ def test_mnist():
 
 if __name__ == '__main__':
     np.random.seed(1234)
-    test_random()
     test_mnist()
