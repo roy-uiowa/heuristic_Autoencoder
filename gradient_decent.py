@@ -145,5 +145,5 @@ if __name__ == '__main__':
     np.random.seed(1234)
     #test_random()
     #test_gradient()
-    test_mnist(100)
+    test_mnist(1000)
     plotter.show_avail_plots()
