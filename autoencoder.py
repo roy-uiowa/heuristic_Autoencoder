@@ -148,6 +148,19 @@ class AutoEncoder:
         except:
             return z, least_squares
 
+    def psi(self, w, z):
+        """
+        Psi function but with a precomputed W and Z rather than just a precomputed W.
+        :param w: Either Cupy or Numpy ndarray. It is the encoder matrix of size (p x m) [NOTE: p = n for simplicity]
+        :param z: Either Cupy or Numpy ndarray. It is the decoder matrix of size (n x m)
+        :return: Psi(W) = ||Z^T @ W - X||_F^2 or least squares error between Z^T @ W and X.
+        """
+        phi_w = self.phi(w, output_numpy=False)
+        inner_psi = (z @ phi_w) - self.x
+        least_squares = self._calc_least_square(inner_psi, z)
+        self.ml.synchronize()
+        return least_squares
+
     def calc_g(self, w):
         """
         Calculate the matrix gradient of psi(W).
