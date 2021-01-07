@@ -21,6 +21,10 @@ from argparse import Namespace
 # To pair-zip hyperparameter options
 from itertools import product
 
+# For testing purposes
+from keras.datasets import mnist
+import time
+
 # =====================================================================================
 # tools: A set of functions to be called during genetic algorithm operations (mutate, mate, select, etc)
 # Documentation: https://deap.readthedocs.io/en/master/api/tools.html
@@ -161,10 +165,11 @@ class Algorithm:
             self.mutpb = args.mutpb
 
         self.ae = AutoEncoder(x, num_features, random_seed=1234, use_gpu=True)
+        self.w_shape = (x.shape[0], num_features)
 
         # Set up ways to define individuals in the population
-        self.toolbox.register("attr_x", np.random.normal, 0, 1, x.shape[0])
-        self.toolbox.register("individual", tools.initRepeat, creator.Individual, self.toolbox.attr_x, num_features)
+        self.toolbox.register("attr_x", np.random.normal, 0, 1)
+        self.toolbox.register("individual", tools.initRepeat, creator.Individual, self.toolbox.attr_x, num_features * x.shape[0])
         self.toolbox.register("population", tools.initRepeat, list, self.toolbox.individual)
 
         # Set up ways to change population
@@ -177,7 +182,8 @@ class Algorithm:
     # large positive numbers.
     # =====================================================================================
     def _evaluate(self, individual):
-        w = np.asarray(individual).transpose()
+        w = np.reshape(individual, self.w_shape)
+        # w = np.asarray(individual).transpose()
         _, cost = self.ae.psi(w)
         return (cost,)
 
@@ -215,8 +221,10 @@ class Algorithm:
 
         record = self.stats.compile(pop) if self.stats else {}
         logbook.record(gen=0, **record)
+        times = []
 
         for g in range(self.num_gen):
+            start_time = time.time()
             # Select the next generation individuals (with replacement)
             offspring = self.toolbox.select(pop, len(pop))
             # Clone the selected individuals (since selection only took references rather than values)
@@ -241,8 +249,8 @@ class Algorithm:
             if self.debug >= 2:
                 print("Generation %i has (min, max) fitness values: (%.3f, %.3f)" % (
                     g, min(fitnesses)[0], max(fitnesses)[0]))
-            # elif self.debug == 1 and g % 10 == 0:
-            #  print("Generation %i has (min, max) fitness values: (%.3f, %.3f)" % (g, max(fitnesses)[0], min(fitnesses)[0]))
+            elif self.debug == 1:
+                plotter.print_progress_bar(g + 1, self.num_gen, suffix=f"Complete--(Gen: fitness): ({g + 1}, {min(fitnesses)[0]:.3f})")
 
             for ind, fit in zip(invalid_ind, fitnesses):
                 ind.fitness.values = fit
@@ -253,6 +261,7 @@ class Algorithm:
             hof.update(pop)
             record = self.stats.compile(pop) if self.stats else {}
             logbook.record(gen=g + 1, **record)
+            times.append(time.time() - start_time)
 
         if self.debug >= 0:
             print("Problem results:")
@@ -261,7 +270,7 @@ class Algorithm:
 
         gen, min_results, max_results, avg, std = logbook.select("gen", "min", "max", "avg", "std")
         return hof[0], hof[0].fitness.values[0], {"iterations": gen, "min": min_results, "max": max_results, "avg": avg,
-                                                  "std": std}
+                                                  "std": std, "times": times}
 
 
 def test_grid_search():
@@ -305,13 +314,38 @@ def test_random():
         # w_in = np.random.normal(size=(num_data_per_point, num_features))
         w_out, best_cost, logs = ga.run()
         loss_values.append(best_cost)
-        print(f"(# features : Least squares error = ({num_features} : {best_cost})")
-        print()
 
     plotter.plot_loss(loss_values, "Random_Test_with_Features", "Num features from list [1, 5, 10, 15, 20, 40, 70]")
+
+
+def test_mnist():
+    # Gradient check using MNIST
+    (train_x, _), (_, _) = mnist.load_data()
+    train_x = train_x / 255                                             # Normalizing images
+    # plotter.plot_mnist(train_x, "original")                           # Show original mnist images
+
+    num_img, img_dim, _ = train_x.shape                                 # Get number of images and # pixels per square img
+    num_features = 500
+    mnist_in = np.reshape(train_x, (img_dim * img_dim, num_img))        # Reshape images to match autoencoder input
+    ga = Algorithm(x=mnist_in, num_features=num_features, debug=1, pop_size=20)
+    w_out, best_cost, logs = ga.run()
+
+    print(f"Average time/generation (sec): {sum(logs['times']) / len(logs['times'])}")
+    print(f"Total time to run GA (sec): {logs['times']}")
+
+    ae = AutoEncoder(mnist_in, num_features, random_seed=1234, use_gpu=True)
+    z, _ = ae.psi(w_out)
+    phi_w_img = ae.phi(w_out)                                            # Calculate phi(W)
+    new_mnist = z @ phi_w_img                                       # Recreate original images using Z and phi(W)
+    new_imgs = np.reshape(new_mnist, train_x.shape)                     # Reshape new images have original shape
+    plotter.plot_mnist(new_imgs, f"{num_features}_features_ga")   # Show new images
+
+    # print(loss_values)
+    plotter.plot_loss(logs['min'], "MNIST_Gradient_Loss_Over_Generations")
 
 
 if __name__ == '__main__':
     np.random.seed(1234)
     # test_grid_search()
-    test_random()
+    # test_random()
+    test_mnist()
