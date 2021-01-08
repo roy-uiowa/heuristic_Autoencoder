@@ -29,7 +29,7 @@ class Particle:
         self.position = initial_weight
         self.cost_function = cost_function
         self.history = [initial_weight]
-        self.w = sorted([random.rand() for i in range(max_iter)])[::-1]
+        self.w = sorted([random.random() for i in range(max_iter)])[::-1]
         self.c1 = sorted([random.randrange(1,5) for i in range(max_iter)])[::-1]
         self.c2 = sorted([random.randrange(1,5) for i in range(max_iter)])
     # evaluate current fitness
@@ -118,10 +118,10 @@ def test_mnist():
     num_img, img_dim, _ = train_x.shape  # Get number of images and # pixels per square img
     mnist_in = np.reshape(train_x, (img_dim * img_dim, num_img))  # Reshape images to match autoencoder input
 
-    history = 500
+    history = 250
     maxiter = 1001
-    num_particles = 5
-    for num_features in [100]:
+    num_particles = 3
+    for num_features in [50]:
         PSO = Algorithm(mnist_in, history, maxiter, num_particles, num_features, img_dim * img_dim)
         ae, w_in, least_squares_test, updated_history, loss_values = PSO.run()
         plotter.plot_loss(loss_values, f"{num_features}_features_pso_w")
