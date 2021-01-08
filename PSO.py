@@ -16,7 +16,7 @@ import numpy as np
 import plotter
 from autoencoder import AutoEncoder
 from keras.datasets import mnist
-
+import random
 
 class Particle:
     def __init__(self, name, initial_weight, cost_function, max_iter):
@@ -29,7 +29,9 @@ class Particle:
         self.position = initial_weight
         self.cost_function = cost_function
         self.history = [initial_weight]
-
+        self.w = sorted([random.rand() for i in range(max_iter)])[::-1]
+        self.c1 = sorted([random.randrange(1,5) for i in range(max_iter)])[::-1]
+        self.c2 = sorted([random.randrange(1,5) for i in range(max_iter)])
     # evaluate current fitness
     def evaluate(self):
         _, self.cost = self.cost_function(self.position)
@@ -40,17 +42,15 @@ class Particle:
 
     # update new particle velocity
     def update_velocity(self, pos_best_g, iteration):
-        w =.5
-        c1=3
-        c2=1
 
-        vel_cog = c1 * np.random.random()
+
+        vel_cog = self.c1[iteration] * np.random.random()
         vel_cog = np.multiply(vel_cog, np.subtract(self.pos_best, self.position))
 
-        vel_soc = c2 * np.random.random()
+        vel_soc = self.c2[iteration] * np.random.random()
         vel_soc = np.multiply(vel_soc, np.subtract(pos_best_g, self.position))
 
-        vel_pre = w * self.velocity
+        vel_pre = self.w[iteration] * self.velocity
         self.velocity = vel_pre + vel_soc + vel_cog 
     # update the particle position based off new velocity updates
     def update_position(self):
@@ -83,7 +83,7 @@ class Algorithm():
             min_loss = 9e12
             for particle in self.swarm:
                 particle.evaluate()
-                print("p{} == cost: {}".format(particle.name, particle.cost))
+                print("p{} == cost: {}".format(particle.name, int(particle.cost)))
                 # determine if current particle is the best (globally)
                 if min_loss > particle.cost:
                     min_loss = particle.cost
@@ -120,7 +120,7 @@ def test_mnist():
 
     history = 500
     maxiter = 1001
-    num_particles = 50
+    num_particles = 5
     for num_features in [100]:
         PSO = Algorithm(mnist_in, history, maxiter, num_particles, num_features, img_dim * img_dim)
         ae, w_in, least_squares_test, updated_history, loss_values = PSO.run()
