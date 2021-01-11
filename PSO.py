@@ -18,6 +18,7 @@ from autoencoder import AutoEncoder
 from keras.datasets import mnist
 import random
 
+
 class Particle:
     def __init__(self, name, initial_weight, cost_function, max_iter):
         self.name = name
@@ -29,9 +30,10 @@ class Particle:
         self.position = initial_weight
         self.cost_function = cost_function
         self.history = [initial_weight]
-        self.w = sorted([random.random() for i in range(max_iter)])[::-1]
-        self.c1 = sorted([random.randrange(1,5) for i in range(max_iter)])[::-1]
-        self.c2 = sorted([random.randrange(1,5) for i in range(max_iter)])
+        self.w = sorted([.3 + random.random() for i in range(max_iter)])[::-1]
+        self.c1 = sorted([random.randrange(1, 5) for i in range(max_iter)])[::-1]
+        self.c2 = sorted([random.randrange(1, 5) for i in range(max_iter)])
+
     # evaluate current fitness
     def evaluate(self):
         _, self.cost = self.cost_function(self.position)
@@ -42,8 +44,6 @@ class Particle:
 
     # update new particle velocity
     def update_velocity(self, pos_best_g, iteration):
-
-
         vel_cog = self.c1[iteration] * np.random.random()
         vel_cog = np.multiply(vel_cog, np.subtract(self.pos_best, self.position))
 
@@ -51,24 +51,27 @@ class Particle:
         vel_soc = np.multiply(vel_soc, np.subtract(pos_best_g, self.position))
 
         vel_pre = self.w[iteration] * self.velocity
-        self.velocity = vel_pre + vel_soc + vel_cog 
-    # update the particle position based off new velocity updates
+        self.velocity = vel_pre + vel_soc + vel_cog
+        # update the particle position based off new velocity updates
+
     def update_position(self):
         self.position = np.add(self.position, self.velocity)
         self.history.append(self.position)
 
 
 class Algorithm():
-    def __init__(self, x_in,history,  maxiter, num_particles, num_features, num_data_per_point):
+    def __init__(self, x_in, history, maxiter, num_particles, num_features, num_data_per_point, shape):
         self.err_best_g = None  # best error for group
         self.pos_best_g = []  # best position for group
         self.num_particles = 3
         self.maxiter = maxiter
+        self.shape = shape
         # establish the swarm
         self.ae = AutoEncoder(x_in, num_features, random_seed=1234, use_gpu=True)
         self.history = history
         self.updates = []
-
+        self.num_features = num_features
+        self.num_particles = num_particles
         self.swarm = []
         for i in range(0, num_particles):
             w_in = np.random.normal(size=(num_data_per_point, num_features), scale=5)
@@ -78,9 +81,10 @@ class Algorithm():
         # begin optimization loop
         loss_values = []
         for i in range(self.maxiter):
-            print("----------\n\t"+str(i))
+            print("----------\n\t" + str(i))
             # cycle through particles in swarm and evaluate fitness
             min_loss = 9e12
+            smallest_particle_cost = None
             for particle in self.swarm:
                 particle.evaluate()
                 print("p{} == cost: {}".format(particle.name, int(particle.cost)))
@@ -93,21 +97,38 @@ class Algorithm():
                     self.err_best_g = particle.cost
                     print("new best")
 
+                if smallest_particle_cost is None or particle.cost > smallest_particle_cost:
+                    smallest_particle_cost = particle.cost
+
             loss_values.append(min_loss)
             dis = 0
             for p1 in self.swarm:
                 for p2 in self.swarm:
-                    dis += np.linalg.norm(p1.position-p2.position)
+                    dis += np.linalg.norm(p1.position - p2.position)
                 break
 
             print("ave. distance between matrix: {}".format(dis))
             for particle in self.swarm:
                 particle.update_velocity(self.pos_best_g, i)
                 particle.update_position()
-            if i % self.history == 0:
-                self.updates.append(self.pos_best_g)
 
-        return self.ae, self.pos_best_g , self.err_best_g, self.updates, loss_values
+            if i % self.history == 0:
+                z_grd, ls_grd, grd = self.ae.calc_g(self.pos_best_g)  # Calculate Z, Error, and Gradient Matrix
+                phi_w_img = self.ae.phi(self.pos_best_g)  # Calculate phi(W)
+                new_mnist = z_grd @ phi_w_img  # Recreate original images using Z and phi(W)
+                new_imgs = np.reshape(new_mnist, self.shape)  # Reshape new images have original shape
+                plotter.plot_mnist(new_imgs, f"{self.num_features}_features_{i}_iteration")  # Show new images
+
+            if int(self.num_particles / self.maxiter) % (i + 1) == 0 and len(self.swarm) > 3:
+                index = 0
+                for particle_loc in range(len(self.swarm)):
+                    if self.swarm[particle_loc].cost == smallest_particle_cost:
+                        index = particle_loc
+                        break
+
+                del self.swarm[index]
+                print("removed worse")
+        return self.ae, self.pos_best_g, self.err_best_g, self.updates, loss_values
 
 
 def test_mnist():
@@ -118,22 +139,14 @@ def test_mnist():
     num_img, img_dim, _ = train_x.shape  # Get number of images and # pixels per square img
     mnist_in = np.reshape(train_x, (img_dim * img_dim, num_img))  # Reshape images to match autoencoder input
 
-    history = 250
-    maxiter = 1001
-    num_particles = 3
+    history = 20
+    maxiter = 10
+    num_particles = 5
     for num_features in [50]:
-        PSO = Algorithm(mnist_in, history, maxiter, num_particles, num_features, img_dim * img_dim)
+        PSO = Algorithm(mnist_in, history, maxiter, num_particles, num_features, img_dim * img_dim, train_x.shape)
         ae, w_in, least_squares_test, updated_history, loss_values = PSO.run()
         plotter.plot_loss(loss_values, f"{num_features}_features_pso_w")
         print(f"(# features : Least squares error = ({num_features} : {least_squares_test})")
-        for pos in range(len(updated_history)):
-            z_grd, ls_grd, grd = ae.calc_g(updated_history[pos])  # Calculate Z, Error, and Gradient Matrix
-            phi_w_img = ae.phi(updated_history[pos])  # Calculate phi(W)
-            new_mnist = z_grd @ phi_w_img  # Recreate original images using Z and phi(W)
-            new_imgs = np.reshape(new_mnist, train_x.shape)  # Reshape new images have original shape
-            plotter.plot_mnist(new_imgs, f"{num_features}_features_{pos*history}_iteration")  # Show new images
-
-    plotter.show_avail_plots()
 
 
 if __name__ == '__main__':
