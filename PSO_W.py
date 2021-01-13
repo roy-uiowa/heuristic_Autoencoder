@@ -29,7 +29,6 @@ class Particle:
         self.velocity = np.multiply(initial_weight, 0)
         self.position = initial_weight
         self.cost_function = cost_function
-        self.history = [initial_weight]
         self.w = sorted([.3 + random.random() for i in range(max_iter)])[::-1]
         self.c1 = sorted([random.randrange(1, 5) for i in range(max_iter)])[::-1]
         self.c2 = sorted([random.randrange(1, 5) for i in range(max_iter)])
@@ -56,7 +55,6 @@ class Particle:
 
     def update_position(self):
         self.position = np.add(self.position, self.velocity)
-        self.history.append(self.position)
 
 
 class Algorithm():
