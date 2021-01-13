@@ -30,8 +30,8 @@ class Particle:
         self.position = initial_weight
         self.cost_function = cost_function
         self.w = sorted([.3 + random.random() for i in range(max_iter)])[::-1]
-        self.c1 = sorted([random.randrange(1, 5) for i in range(max_iter)])[::-1]
-        self.c2 = sorted([random.randrange(1, 5) for i in range(max_iter)])
+        self.c1 = sorted([1 for i in range(max_iter)])[::-1]
+        self.c2 = sorted([1 for i in range(max_iter)])
 
     # evaluate current fitness
     def evaluate(self):
@@ -115,7 +115,7 @@ class Algorithm():
                 phi_w_img = self.ae.phi(self.pos_best_g)  # Calculate phi(W)
                 new_mnist = z_grd @ phi_w_img  # Recreate original images using Z and phi(W)
                 new_imgs = np.reshape(new_mnist, self.shape)  # Reshape new images have original shape
-                plotter.plot_mnist(new_imgs, f"{self.num_features}_features_{i}_iteration")  # Show new images
+                plotter.plot_mnist(new_imgs, f"d{self.num_features}_features_{i}_iteration")  # Show new images
 
             if int(self.num_particles / self.maxiter) % (i + 1) == 0 and len(self.swarm) > 3:
                 index = 0
@@ -124,7 +124,7 @@ class Algorithm():
                         index = particle_loc
                         break
 
-                del self.swarm[index]
+               # del self.swarm[index]
                 print("removed worse")
         return self.ae, self.pos_best_g, self.err_best_g, self.updates, loss_values
 
@@ -137,10 +137,10 @@ def test_mnist():
     num_img, img_dim, _ = train_x.shape  # Get number of images and # pixels per square img
     mnist_in = np.reshape(train_x, (img_dim * img_dim, num_img))  # Reshape images to match autoencoder input
 
-    history = 20
-    maxiter = 10
-    num_particles = 5
-    for num_features in [50]:
+    history = 2
+    maxiter = 100
+    num_particles = 50
+    for num_features in [200]:
         PSO = Algorithm(mnist_in, history, maxiter, num_particles, num_features, img_dim * img_dim, train_x.shape)
         ae, w_in, least_squares_test, updated_history, loss_values = PSO.run()
         plotter.plot_loss(loss_values, f"{num_features}_features_pso_w")
