@@ -125,7 +125,9 @@ class Algorithm():
                 particle.update_velocity(self.pos_best_g_w, self.pos_best_g_z, i)
                 particle.update_position()
             if i % self.history == 0:
-                new_mnist = self.pos_best_g_z @ self.pos_best_g_w  # Recreate original images using Z and phi(W)
+                z_grd, ls_grd, grd = self.ae.calc_g(self.pos_best_g_w)  # Calculate Z, Error, and Gradient Matrix
+                phi_w_img = self.ae.phi(self.pos_best_g_w)  # Calculate phi(W)
+                new_mnist = z_grd @ phi_w_img  # Recreate original images using Z and phi(W)
                 new_imgs = np.reshape(new_mnist, self.shape)  # Reshape new images have original shape
                 plotter.plot_mnist(new_imgs, f"{self.num_features}_features_{i}_iteration")  # Show new images
 
@@ -140,9 +142,9 @@ def test_mnist():
     num_img, img_dim, _ = train_x.shape  # Get number of images and # pixels per square img
     mnist_in = np.reshape(train_x, (img_dim * img_dim, num_img))  # Reshape images to match autoencoder input
 
-    history = 10
+    history = 5
     maxiter = 10
-    num_particles = 4
+    num_particles = 20
     for num_features in [200]:
         PSO = Algorithm(mnist_in, history, maxiter, num_particles, num_features, img_dim * img_dim, train_x.shape)
         ae, w_in, z_in, err = PSO.run()
