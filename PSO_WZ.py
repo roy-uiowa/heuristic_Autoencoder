@@ -124,6 +124,10 @@ class Algorithm():
             for particle in self.swarm:
                 particle.update_velocity(self.pos_best_g_w, self.pos_best_g_z, i)
                 particle.update_position()
+            if i % self.history == 0:
+                new_mnist = self.pos_best_g_z @ self.pos_best_g_w  # Recreate original images using Z and phi(W)
+                new_imgs = np.reshape(new_mnist, self.shape)  # Reshape new images have original shape
+                plotter.plot_mnist(new_imgs, f"{self.num_features}_features_{i}_iteration")  # Show new images
 
         return self.ae, self.pos_best_g_w, self.pos_best_g_z, self.err_best_g_z
 
@@ -138,8 +142,8 @@ def test_mnist():
 
     history = 10
     maxiter = 10
-    num_particles = 3
-    for num_features in [20]:
+    num_particles = 4
+    for num_features in [200]:
         PSO = Algorithm(mnist_in, history, maxiter, num_particles, num_features, img_dim * img_dim, train_x.shape)
         ae, w_in, z_in, err = PSO.run()
         print("num features: {} \t loss: {}".format(num_features, err))
