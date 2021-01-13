@@ -125,7 +125,7 @@ class Algorithm():
                 particle.update_velocity(self.pos_best_g_w, self.pos_best_g_z, i)
                 particle.update_position()
 
-        return self.ae, self.pos_best_g_w, self.pos_best_g_z
+        return self.ae, self.pos_best_g_w, self.pos_best_g_z, self.err_best_g_z
 
 
 def test_mnist():
@@ -136,18 +136,13 @@ def test_mnist():
     num_img, img_dim, _ = train_x.shape  # Get number of images and # pixels per square img
     mnist_in = np.reshape(train_x, (img_dim * img_dim, num_img))  # Reshape images to match autoencoder input
 
-    history = 20
-    maxiter = 4
-    num_particles = 5
-    for num_features in [10]:
+    history = 10
+    maxiter = 10
+    num_particles = 3
+    for num_features in [20]:
         PSO = Algorithm(mnist_in, history, maxiter, num_particles, num_features, img_dim * img_dim, train_x.shape)
-        ae, w_in, z_in = PSO.run()
-        z_img, least_squares_img = AutoEncoder.psi(w_in)  # Run autoencoder to generate Z
-        phi_w_img = AutoEncoder.phi(w_in)  # Calculate phi(W)
-        new_mnist = z_img @ phi_w_img  # Recreate original images using Z and phi(W)
-        new_imgs = np.reshape(new_mnist, train_x.shape)  # Reshape new images have original shape
-        plotter.plot_mnist(new_imgs, f"{num_features}_features")  # Show new images
-
+        ae, w_in, z_in, err = PSO.run()
+        print("num features: {} \t loss: {}".format(num_features, err))
 
 if __name__ == '__main__':
     np.random.seed(1234)
