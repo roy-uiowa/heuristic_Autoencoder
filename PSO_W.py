@@ -73,7 +73,7 @@ class Algorithm():
         self.swarm = []
         for i in range(0, num_particles):
             w_in = np.random.normal(size=(num_data_per_point, num_features), scale=5)
-            self.swarm.append(Particle(i, w_in, self.ae.psi, maxiter))
+            self.swarm.append(Particle(i, w_in, self.ae.psi_w, maxiter))
 
     def run(self):
         # begin optimization loop

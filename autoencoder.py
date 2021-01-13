@@ -134,7 +134,7 @@ class AutoEncoder:
         tmp = (self.ml.square(self.ml.linalg.norm(inner_psi, 'fro')) + self.alpha * self.ml.square(self.ml.linalg.norm(z, 'fro')))
         return tmp.item()
 
-    def psi(self, w):
+    def psi_w(self, w):
         """
         Run 1 iteration to calculate new W and Z from input.
         :param w: Either Cupy or Numpy ndarray. It is the encoder matrix of size (p x m) [NOTE: p = n for simplicity]
@@ -148,7 +148,7 @@ class AutoEncoder:
         except:
             return z, least_squares
 
-    def psi(self, w, z):
+    def psi_wz(self, w, z):
         """
         Psi function but with a precomputed W and Z rather than just a precomputed W.
         :param w: Either Cupy or Numpy ndarray. It is the encoder matrix of size (p x m) [NOTE: p = n for simplicity]
@@ -159,6 +159,7 @@ class AutoEncoder:
         inner_psi = (z @ phi_w) - self.x
         least_squares = self._calc_least_square(inner_psi, z)
         self.ml.synchronize()
+
         return least_squares
 
     def calc_g(self, w):
