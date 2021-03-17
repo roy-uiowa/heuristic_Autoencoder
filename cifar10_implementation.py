@@ -212,9 +212,13 @@ if __name__ == '__main__':
     #test_random()
     #test_gradient()
     # test_mnist(1000)
-    newCIFAR10_data = test_cifar10(300)  #currently it uses testset for compression
+    newCIFAR10_data = test_cifar10(10)  #currently it uses testset for compression
     print(newCIFAR10_data.shape)
     plotter.show_avail_plots()
+
+    plotter.plot_mnist(newCIFAR10_data, "compressed")
+    print(newCIFAR10_data.shape)
+    newCIFAR10_data = newCIFAR10_data.reshape(10000, 32, 32, 1)
 
     # load dataset
     trainX, trainY, testX, testY = load_dataset()
